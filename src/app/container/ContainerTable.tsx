@@ -28,24 +28,28 @@ const columns: ProColumns<Container>[] = [
         copyable: true,
         ellipsis: true,
         width: 120,
+        search: false,
     },
     {
         title: 'Name',
         dataIndex: 'Names',
         key: 'Names',
+        sorter: true,
         render: (_,record: Container): string => record.Names?.[0].substring(1) || 'N/A',
-        search: false,
+        search: true,
     },
     {
         title: 'Image',
         dataIndex: 'Image',
         key: 'Image',
+        sorter: true,
         // ellipsis: true,
     },
     {
         title: 'Ports',
         dataIndex: 'Ports',
         key: 'Ports',
+        search: false,
         render: (_, record: Container) => {
             if (!record.Ports || record.Ports.length === 0) return 'N/A';
             return record.Ports.map((port, index) => {
@@ -68,6 +72,7 @@ const columns: ProColumns<Container>[] = [
         title: 'Status',
         dataIndex: 'State',
         key: 'State',
+        sorter: true,
         render: (_, record: Container) => {
             let color: any = 'default';
             let badgeText = '';
@@ -139,6 +144,16 @@ const ContainerTable = ({ data }: { data: Container[] }) => {
                         setClientData( await getContainers())
                     }}}
                 dataSource={clientData}
+                request={async(options, _, __
+                ) => {
+                    console.log(options);
+                    // TODO: Make Filters work
+                    return {
+                        data: clientData,
+                        success: true,
+                        total: clientData.length,
+                    }
+                }}
                 rowKey="Id"
                 pagination={{
                     pageSize: 10,
