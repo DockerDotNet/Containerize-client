@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import {ProTable, ProColumns, ProDescriptions, ProDescriptionsItemProps} from '@ant-design/pro-components';
-import {Badge, Drawer, Spin, Tooltip} from 'antd';
-import {getContainers} from "@/app/container/data";
-import {FaExternalLinkAlt} from "react-icons/fa";
-import {classNames} from "@/utils";
+import { ProTable, ProColumns, ProDescriptions, ProDescriptionsItemProps } from '@ant-design/pro-components';
+import { Badge, Drawer, Spin, Tooltip } from 'antd';
+import { FaExternalLinkAlt } from "react-icons/fa";
+import { getContainers } from "@/app/container/data";
+import { classNames } from "@/utils";
 
 interface Container {
     Id: string;
@@ -21,12 +21,10 @@ interface Container {
     }[];
 }
 
-
 const ContainerTable = ({ data }: { data: Container[] }) => {
     const [clientData, setClientData] = useState<Container[] | null>(null);
     const [showDetail, setShowDetail] = useState<boolean>(false);
     const [currentRow, setCurrentRow] = useState<Container>();
-
 
     const columns: ProColumns<Container>[] = [
         {
@@ -42,19 +40,25 @@ const ContainerTable = ({ data }: { data: Container[] }) => {
             title: 'Name',
             dataIndex: 'Names',
             key: 'Names',
-            sorter: true,
-            render: (_,record: Container) => <a className={classNames(!showDetail && "hover:underline")} onClick={() => {
+            sorter: (a, b) => (a.Names?.[0] || '').localeCompare(b.Names?.[0] || ''),
+            render: (_, record: Container) => <a className={classNames(!showDetail && "hover:underline")} onClick={() => {
                 setCurrentRow(record);
                 setShowDetail(true);
-            }}>{record.Names?.[0].substring(1) || 'N/A'}</a>,
+            }}>{record.Names?.[0]?.substring(1) || 'N/A'}</a>,
             search: true,
+            onFilter: (value, record) =>
+                record.Names.some(name =>
+                    name.toLowerCase().replace('/', '').includes((value as string).toLowerCase().trim())
+                )
         },
         {
             title: 'Image',
             dataIndex: 'Image',
             key: 'Image',
-            sorter: true,
-            // ellipsis: true,
+            sorter: (a, b) => a.Image.localeCompare(b.Image),
+            search: true,
+            onFilter: (value, record) =>
+                record.Image.toLowerCase().includes((value as string).toLowerCase().trim())
         },
         {
             title: 'Ports',
@@ -72,7 +76,6 @@ const ContainerTable = ({ data }: { data: Container[] }) => {
                                 PublicPort ? (<a href={url} className='flex items-center gap-1 hover:underline' target="_blank" rel="noopener noreferrer">
                                     <FaExternalLinkAlt />{`${PublicPort}:${PrivatePort}`}
                                 </a>) : '-'
-
                             }
                         </div>
                     );
@@ -83,95 +86,109 @@ const ContainerTable = ({ data }: { data: Container[] }) => {
             title: 'Status',
             dataIndex: 'State',
             key: 'State',
-            sorter: true,
+            sorter: (a, b) => a.State.localeCompare(b.State),
             render: (_, record: Container) => {
                 let color: any = 'default';
                 let badgeText = '';
 
-                // Determine badge color based on 'State'
                 switch (record.State) {
                     case 'running':
-                        color = 'success'; // Green
+                        color = 'success';
                         badgeText = 'Running';
                         break;
                     case 'paused':
-                        color = 'warning'; // Yellow
+                        color = 'warning';
                         badgeText = 'Paused';
                         break;
                     case 'stopped':
-                        color = 'default'; // Grey
+                        color = 'default';
                         badgeText = 'Stopped';
                         break;
                     case 'exited':
-                        color = 'error'; // Red
+                        color = 'error';
                         badgeText = 'Exited';
                         break;
                     case 'dead':
-                        color = 'error'; // Dark Red or Black
+                        color = 'error';
                         badgeText = 'Dead';
                         break;
                     case 'restarting':
-                        color = 'processing'; // Blue
+                        color = 'processing';
                         badgeText = 'Restarting';
                         break;
                     default:
-                        color = undefined; // Light Grey
+                        color = undefined;
                         badgeText = 'Unknown';
                 }
 
                 return (
                     <div className="flex gap-2">
                         <Tooltip title={badgeText}><Badge status={color} /></Tooltip>
-                        <div>{record.Status}</div> {/* Display the Status text */}
+                        <div>{record.Status}</div>
                     </div>
                 );
             },
             filters: true,
+            onFilter: (value, record) => record.State === value,
             valueEnum: {
                 running: { text: 'Running', status: 'running' },
-                stopped: { text: 'Stopped', status: 'exited' },
-                paused: { text: 'Paused', status: 'paused' },
+                exited: { text: 'Exited', status: 'error' },
+                paused: { text: 'Paused', status: 'warning' },
+                dead: { text: 'Dead', status: 'error' },
+                stopped: { text: 'Stopped', status: 'default' },
+                restarting: { text: 'Restarting', status: 'processing' }
             },
         },
     ];
 
-    // Set data in client-side state after mount
+    // Add this function to handle global search
+    const handleSearch = (value: string) => {
+        const searchValue = value.toLowerCase().trim();
+        if (!searchValue) {
+            setClientData(data);
+            return;
+        }
+
+        const filtered = data.filter(item =>
+            item.Names.some(name =>
+                name.toLowerCase().replace('/', '').includes(searchValue)
+            ) ||
+            item.Image.toLowerCase().includes(searchValue) ||
+            item.State.toLowerCase().includes(searchValue)
+        );
+
+        setClientData(filtered);
+    };
+
     useEffect(() => {
         if (data) {
             setClientData(data);
         }
     }, [data]);
 
-    if (!clientData) return <div className='text-center'><Spin size={"large"} /> </div>; // Loading state
+    if (!clientData) return <div className='text-center'><Spin size={"large"} /> </div>;
 
     return (
         <div style={{ padding: '20px' }}>
             <ProTable<Container>
                 columns={columns}
-                options={{reload: async () => {
-                        setClientData( await getContainers())
-                    }}}
-                dataSource={clientData}
-                request={async(options, _, __
-                ) => {
-                    console.log(options);
-                    // TODO: Make Filters work
-                    return {
-                        data: clientData,
-                        success: true,
-                        total: clientData.length,
+                options={{
+                    reload: async () => {
+                        setClientData(await getContainers())
                     }
                 }}
+                dataSource={clientData}
                 rowKey="Id"
                 pagination={{
                     pageSize: 10,
                 }}
                 search={{
                     labelWidth: 'auto',
+                    filterType: 'light',
+                    onSearch: (value: string) => handleSearch(value),
                 }}
                 dateFormatter="string"
                 headerTitle="Container Management"
-
             />
             <Drawer
                 width={600}
@@ -183,15 +200,10 @@ const ContainerTable = ({ data }: { data: Container[] }) => {
                 closable={false}
             >
                 {currentRow?.Names && (
-                    <ProDescriptions<TableListItem>
+                    <ProDescriptions<Container>
                         column={2}
-                        title={currentRow?.Names[0].substring(1)}
-                        request={async () => ({
-                            data: currentRow || {},
-                        })}
-                        params={{
-                            id: currentRow?.name,
-                        }}
+                        title={currentRow?.Names[0]?.substring(1)}
+                        dataSource={currentRow}
                         columns={columns as ProDescriptionsItemProps<Container>[]}
                     />
                 )}
