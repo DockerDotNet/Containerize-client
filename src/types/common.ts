@@ -1,0 +1,1 @@
+export type BadgeStatus = 'success' | 'warning' | 'error' | 'default' | 'processing' | undefined;

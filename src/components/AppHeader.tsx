@@ -1,8 +1,7 @@
-import React from 'react';
-import {Header} from "antd/es/layout/layout";
-import {DockerOutlined, RadarChartOutlined} from "@ant-design/icons";
-import {Avatar} from "antd";
-import {FaCircleUser, FaUser} from "react-icons/fa6";
+import { DockerOutlined } from "@ant-design/icons";
+import { Avatar } from "antd";
+import { Header } from "antd/es/layout/layout";
+import { FaUser } from "react-icons/fa6";
 
 const AppHeader = () => {
     return (

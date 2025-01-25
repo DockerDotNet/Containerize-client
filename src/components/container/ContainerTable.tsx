@@ -1,31 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ProTable, ProColumns, ProDescriptions, ProDescriptionsItemProps } from '@ant-design/pro-components';
-import { Badge, Drawer, Spin, Tooltip } from 'antd';
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { getContainers } from "@/app/container/data";
-import { classNames } from "@/utils";
+import { ParamsType, ProColumns, ProDescriptionsItemProps, ProTable } from '@ant-design/pro-components';
+import { useState } from 'react';
+import { ContainerBadge } from "./ContainerBadge";
+import { ContainerDrawer } from "./ContainerDrawer";
+import { ContainerName } from "./ContainerName";
+import { ContainerPorts } from "./ContainerPorts";
+import { SortOrder, RequestResponse, Container } from "@/app/container/types";
+import { compareContainersByPorts } from "@/utils/containerUtils";
 
-interface Container {
-    Id: string;
-    Names: string[];
-    Image: string;
-    State: string;
-    Status: string;
-    Ports: {
-        IP: string;
-        PrivatePort: number;
-        PublicPort: number;
-        Type: string;
-    }[];
-}
 
 const ContainerTable = () => {
     const [loading, setLoading] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [currentRow, setCurrentRow] = useState<Container>();
     const [localData, setLocalData] = useState<Container[]>([]);
+    const [pagination, setPagination] = useState({
+        current: 1, // Current page number
+        pageSize: 10, // Number of items per page
+    });
+
+    const handleNameClick = (record: Container) => {
+        setCurrentRow(record);
+        setShowDetail(true);
+    }
 
     const columns: ProColumns<Container>[] = [
         {
@@ -42,12 +41,7 @@ const ContainerTable = () => {
             dataIndex: 'Names',
             key: 'Names',
             sorter: (a, b) => (a.Names?.[0] || '').localeCompare(b.Names?.[0] || ''),
-            render: (_, record) => (
-                <a className={classNames(!showDetail && "hover:underline")}
-                    onClick={() => { setCurrentRow(record); setShowDetail(true); }}>
-                    {record.Names?.[0]?.substring(1) || 'N/A'}
-                </a>
-            ),
+            render: (_, record) => <ContainerName names={record.Names} showDetail={showDetail} onClick={() => handleNameClick(record)} />,
             search: {
                 transform: (value) => ({ name: [value] })
             }
@@ -57,55 +51,22 @@ const ContainerTable = () => {
             dataIndex: 'Image',
             key: 'Image',
             sorter: (a, b) => a.Image.localeCompare(b.Image),
-            search: {
-                transform: (value) => ({ ancestor: [value] })
-            }
+            search: false
         },
         {
             title: 'Ports',
             dataIndex: 'Ports',
             key: 'Ports',
             search: false,
-            render: (_, record) => (
-                record.Ports?.map((port, index) => (
-                    port.PublicPort ? (
-                        <div key={index}>
-                            <a href={`http://${port.IP}:${port.PublicPort}`}
-                                className='flex items-center gap-1 hover:underline'
-                                target="_blank"
-                                rel="noopener noreferrer">
-                                <FaExternalLinkAlt />
-                                {`${port.PublicPort}:${port.PrivatePort}`}
-                            </a>
-                        </div>
-                    ) : '-'
-                )) || 'N/A'
-            ),
+            sorter: (a, b) => compareContainersByPorts(a, b),
+            render: (_, record) => <ContainerPorts ports={record.Ports} />,
         },
         {
             title: 'Status',
             dataIndex: 'State',
             key: 'State',
             sorter: (a, b) => a.State.localeCompare(b.State),
-            render: (_, record) => {
-                const statusColors = {
-                    running: 'success',
-                    paused: 'warning',
-                    exited: 'error',
-                    dead: 'error',
-                    stopped: 'default',
-                    restarting: 'processing'
-                };
-
-                return (
-                    <div className="flex gap-2">
-                        <Tooltip title={record.State}>
-                            <Badge status={statusColors[record.State as keyof typeof statusColors] || 'default'} />
-                        </Tooltip>
-                        <div>{record.Status}</div>
-                    </div>
-                );
-            },
+            render: (_, record) => <ContainerBadge state={record.State} statusText={record.Status} />,
             filters: true,
             valueEnum: {
                 running: { text: 'Running' },
@@ -115,39 +76,59 @@ const ContainerTable = () => {
                 stopped: { text: 'Stopped' },
                 restarting: { text: 'Restarting' }
             },
+            search: {
+                transform: (value) => ({ status: [value] })
+            },
             filterSearch: true,
         },
     ];
 
-    const handleRequest = async (params: any) => {
+    const handlePaginationChange = (current: number, pageSize: number) => {
+        setPagination({ current, pageSize });
+    };
+
+    const handleRequest = async (
+        params: ParamsType & {
+            sort?: Record<string, SortOrder>;
+            filter?: Record<string, (string | number)[] | null>;
+        }
+    ): Promise<RequestResponse<Container>> => {
         setLoading(true);
         try {
             // Server-side filtering
             const apiFilters: Record<string, string[]> = {};
 
+            // Direct filter mapping
             if (params.name) apiFilters.name = [params.name];
             if (params.ancestor) apiFilters.ancestor = [params.ancestor];
-            if (params.State) apiFilters.status = Array.isArray(params.State) ? params.State : [params.State];
+            if (params.status) {
+                apiFilters.status = Array.isArray(params.status)
+                    ? params.status
+                    : [params.status];
+            }
 
             // Fetch filtered data from server
             const filteredData = await getContainers(apiFilters);
 
             // Client-side sorting
             const sortedData = [...filteredData].sort((a, b) => {
-                const sortKeyMap: Record<string, keyof Container> = {
-                    Names: 'Names',
-                    Image: 'Image',
-                    State: 'State'
-                };
-
-                const sortKey = sortKeyMap[params.sortField] || 'Names';
-                const order = params.sortOrder === 'ascend' ? 1 : -1;
-
-                const aValue = sortKey === 'Names' ? a.Names[0] : a[sortKey];
-                const bValue = sortKey === 'Names' ? b.Names[0] : b[sortKey];
-
+                const sortKey = params.sortField || 'Names';
+                const order = params.sort?.[sortKey] === 'ascend' ? 1 : -1;
+              
+                let aValue, bValue;
+              
+                if (sortKey === 'Names') {
+                  aValue = a.Names[0];
+                  bValue = b.Names[0];
+                } else if (sortKey === 'Ports') {
+                    return order * compareContainersByPorts(a, b);
+                } else {
+                  aValue = a[sortKey as keyof Container];
+                  bValue = b[sortKey as keyof Container];
+                }
+              
                 return order * String(aValue).localeCompare(String(bValue));
-            });
+              });
 
             setLocalData(sortedData);
 
@@ -169,11 +150,14 @@ const ContainerTable = () => {
                 rowKey="Id"
                 dataSource={localData}
                 pagination={{
-                    pageSize: 10,
-                    showSizeChanger: false,
+                    current: pagination.current, // Current page number
+                    pageSize: pagination.pageSize, // Number of items per page
+                    showSizeChanger: true, // Enable page size changer
+                    onChange: handlePaginationChange, // Handle page change
+                    onShowSizeChange: handlePaginationChange, // Handle page size change
                 }}
                 search={{
-                    filterType: 'light',
+                    filterType: 'query',
                     labelWidth: 'auto',
                 }}
                 options={{
@@ -193,24 +177,15 @@ const ContainerTable = () => {
                 headerTitle="Container Management"
             />
 
-            <Drawer
-                width={600}
+            <ContainerDrawer
                 open={showDetail}
                 onClose={() => {
                     setCurrentRow(undefined);
                     setShowDetail(false);
                 }}
-                closable={false}
-            >
-                {currentRow?.Names && (
-                    <ProDescriptions<Container>
-                        column={2}
-                        title={currentRow.Names[0].substring(1)}
-                        dataSource={currentRow}
-                        columns={columns as ProDescriptionsItemProps<Container>[]}
-                    />
-                )}
-            </Drawer>
+                currentRow={currentRow}
+                columns={columns as ProDescriptionsItemProps<Container>[]}
+            />
         </div>
     );
 };
