@@ -42,3 +42,4 @@ next-env.d.ts
 
 /temp
 .idea
+pnpm-lock.yaml

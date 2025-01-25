@@ -1,4 +1,4 @@
-import { Container } from "@/app/container/types";
+import { Container } from "@/app/containers/types";
 
 /**
  * Compare two containers based on their public ports.

@@ -1,4 +1,4 @@
-import { Container } from '@/app/container/types';
+import { Container } from '@/app/containers/types';
 import { FaExternalLinkAlt } from 'react-icons/fa';
 
 interface ContainerPortsProps {

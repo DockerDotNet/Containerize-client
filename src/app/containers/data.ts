@@ -1,4 +1,4 @@
-import { Container } from "./types";
+import { Container, ContainerDetail } from "./types";
 
 export async function getContainers(filters?: Record<string, string[]>): Promise<Container[]> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_HOST}/api/containers`);
@@ -13,5 +13,10 @@ export async function getContainers(filters?: Record<string, string[]>): Promise
   }
 
   const res = await fetch(url.toString(), { cache: 'no-store' });
+  return await res.json();
+}
+
+export async function getContainer(id: string): Promise<ContainerDetail> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/containers/${id}`, { cache: 'no-store' });
   return await res.json();
 }

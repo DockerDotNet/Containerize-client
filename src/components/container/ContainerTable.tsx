@@ -1,14 +1,15 @@
 'use client';
 
-import { getContainers } from "@/app/container/data";
-import { ParamsType, ProColumns, ProDescriptionsItemProps, ProTable } from '@ant-design/pro-components';
+import { getContainers } from "@/app/containers/data";
+import { ParamsType, ProColumns, ProTable } from '@ant-design/pro-components';
 import { useState } from 'react';
 import { ContainerBadge } from "./ContainerBadge";
-import { ContainerDrawer } from "./ContainerDrawer";
+
+import { Container, RequestResponse, SortOrder } from "@/app/containers/types";
+import { compareContainersByPorts } from "@/utils/containerUtils";
+import ContainerDrawer from "./ContainerDrawer";
 import { ContainerName } from "./ContainerName";
 import { ContainerPorts } from "./ContainerPorts";
-import { SortOrder, RequestResponse, Container } from "@/app/container/types";
-import { compareContainersByPorts } from "@/utils/containerUtils";
 
 
 const ContainerTable = () => {
@@ -183,8 +184,8 @@ const ContainerTable = () => {
                     setCurrentRow(undefined);
                     setShowDetail(false);
                 }}
-                currentRow={currentRow}
-                columns={columns as ProDescriptionsItemProps<Container>[]}
+                containerId={currentRow?.Id || ''}
+                // columns={columns as ProDescriptionsItemProps<Container>[]}
             />
         </div>
     );
