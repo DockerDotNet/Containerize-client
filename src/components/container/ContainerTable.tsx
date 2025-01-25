@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { getContainers } from "@/app/containers/data";
@@ -5,7 +6,7 @@ import { ParamsType, ProColumns, ProTable } from '@ant-design/pro-components';
 import { useState } from 'react';
 import { ContainerBadge } from "./ContainerBadge";
 
-import { Container, RequestResponse, SortOrder } from "@/app/containers/types";
+import { Container, RequestResponse } from "@/app/containers/types";
 import { compareContainersByPorts } from "@/utils/containerUtils";
 import ContainerDrawer from "./ContainerDrawer";
 import { ContainerName } from "./ContainerName";
@@ -90,9 +91,10 @@ const ContainerTable = () => {
 
     const handleRequest = async (
         params: ParamsType & {
-            sort?: Record<string, SortOrder>;
-            filter?: Record<string, (string | number)[] | null>;
-        }
+            pageSize?: number;
+            current?: number;
+            keyword?: string;
+        }, sort: any, filter: Record<string, (string | number)[] | null>
     ): Promise<RequestResponse<Container>> => {
         setLoading(true);
         try {
@@ -107,6 +109,9 @@ const ContainerTable = () => {
                     ? params.status
                     : [params.status];
             }
+            if (filter && filter['State']) {
+                apiFilters.status = filter['State'] as string[];
+            }
 
             // Fetch filtered data from server
             const filteredData = await getContainers(apiFilters);
@@ -115,21 +120,21 @@ const ContainerTable = () => {
             const sortedData = [...filteredData].sort((a, b) => {
                 const sortKey = params.sortField || 'Names';
                 const order = params.sort?.[sortKey] === 'ascend' ? 1 : -1;
-              
+
                 let aValue, bValue;
-              
+
                 if (sortKey === 'Names') {
-                  aValue = a.Names[0];
-                  bValue = b.Names[0];
+                    aValue = a.Names[0];
+                    bValue = b.Names[0];
                 } else if (sortKey === 'Ports') {
                     return order * compareContainersByPorts(a, b);
                 } else {
-                  aValue = a[sortKey as keyof Container];
-                  bValue = b[sortKey as keyof Container];
+                    aValue = a[sortKey as keyof Container];
+                    bValue = b[sortKey as keyof Container];
                 }
-              
+
                 return order * String(aValue).localeCompare(String(bValue));
-              });
+            });
 
             setLocalData(sortedData);
 
@@ -185,7 +190,7 @@ const ContainerTable = () => {
                     setShowDetail(false);
                 }}
                 containerId={currentRow?.Id || ''}
-                // columns={columns as ProDescriptionsItemProps<Container>[]}
+            // columns={columns as ProDescriptionsItemProps<Container>[]}
             />
         </div>
     );
