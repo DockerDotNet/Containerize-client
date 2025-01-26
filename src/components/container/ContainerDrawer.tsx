@@ -1,12 +1,13 @@
-import { getContainer } from '@/app/containers/data';
-import { ContainerDetail } from '@/app/containers/types';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { getContainer } from '@/app/containers/api';
 import { Button, Col, Drawer, message, Row, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { FaExternalLinkAlt } from 'react-icons/fa';
 import { DefaultTags } from '../Tags';
-import { VscDebugPause, VscDebugRestart, VscDebugStart, VscDebugStop, VscTrash } from 'react-icons/vsc';
+import { VscDebugPause, VscDebugRestart, VscDebugStart, VscDebugStop, VscEdit, VscRefresh, VscTrash } from 'react-icons/vsc';
 import { PiBomb } from 'react-icons/pi';
+import useContainerActions from '@/hooks/useContainerActions';
 
 const { Title } = Typography;
 
@@ -17,20 +18,47 @@ interface ContainerDrawerProps {
 }
 
 const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, containerId }) => {
-  const [containerData, setContainerData] = useState<ContainerDetail | null>(null);
   const router = useRouter()
+
+  const {
+    isLoading,
+    loadingAction,
+    handleStart,
+    handleStop,
+    handleRestart,
+    handleKill,
+    // handlePause,
+    // handleResume,
+    // handleRemove,
+    // handleRecreate,
+    // handleEdit,
+    isStartDisabled,
+    isStopDisabled,
+    isRestartDisabled,
+    isKillDisabled,
+    isPauseDisabled,
+    isResumeDisabled,
+    isRemoveDisabled,
+    isRecreateDisabled,
+    isEditDisabled,
+    containerState,
+    setContainerState,
+  } = useContainerActions(containerId, () => {
+    // Refresh container data after a successful action
+    getContainer(containerId).then(setContainerState);
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       if (open && containerId) {
         try {
           const data = await getContainer(containerId);
-          setContainerData(data);
+          setContainerState(data);
         } catch (err) {
           console.error('Failed to fetch container data:', err);
         }
       } else {
-        setContainerData(null);
+        setContainerState(null);
       }
     };
 
@@ -38,17 +66,13 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
   }, [open, containerId]);
 
   const handleAction = async (action: string) => {
-    message.info(`${action} action triggered.`);
-    // Add API integration here for the respective action (start, stop, kill, restart, etc.)
-    try {
-      // Example:
-      // await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/containers/${containerId}/${action}`, { method: 'POST' });
-    } catch (error) {
-      console.error(`${action} failed:`, error);
-    }
+    message.open({
+      content: `${action} action triggered.`,
+      type: 'loading',
+    });
   };
 
-  if (!containerData) return null;
+  if (!containerState) return null;
 
   const environmentColumns = [
     {
@@ -63,12 +87,12 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
     },
   ];
 
-  const environmentData = containerData.Config?.Env?.map((envVar) => {
+  const environmentData = containerState.Config?.Env?.map((envVar) => {
     const [key, ...valueParts] = envVar.split('=');
     return { key, value: valueParts.join('=') };
   }) || [];
 
-  const networkItems = Object.entries(containerData.NetworkSettings?.Networks || {}).map(([networkName, network]) => ({
+  const networkItems = Object.entries(containerState.NetworkSettings?.Networks || {}).map(([networkName, network]) => ({
     key: networkName,
     label: networkName,
     children: (
@@ -101,15 +125,17 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
           <Title level={5}>General Information</Title>
           <Table
             dataSource={[
-              { key: 'Name', value: containerData.Name.substring(1) },
+              { key: 'Name', value: containerState.Name.substring(1) },
               {
-                key: 'Status', value: <Tag color={containerData.State?.Status === 'running' ? 'green' : 'red'}>
-                  {containerData.State?.Status}
+                key: 'Status', value: <Tag color={containerState.State?.Status === 'running' ? 'green' : 'red'}>
+                  {containerState.State?.Status}
                 </Tag>
               },
-              { key: 'Image', value: containerData.Config?.Image },
-              { key: 'Command', value: `${containerData.Path} ${containerData.Args?.join(' ')}` },
-              { key: 'Created', value: new Date(containerData.Created).toLocaleString() },
+              { key: 'Image', value: containerState.Config?.Image },
+              { key: 'Command', value: `${containerState.Path} ${containerState.Args?.join(' ')}` },
+              { key: 'Created', value: new Date(containerState.Created).toLocaleString() },
+              { key: 'Started', value: new Date(containerState.State.StartedAt).toLocaleString() },
+              { key: 'Finished', value: containerState.State.FinishedAt !== "0001-01-01T00:00:00Z" ? new Date(containerState.State.FinishedAt).toLocaleString() : "N/A" },
             ]}
             columns={[
               { title: 'Field', dataIndex: 'key', key: 'key' },
@@ -131,9 +157,9 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
               <Title level={5}>Network Settings</Title>
               <Table
                 dataSource={[
-                  { key: 'IP Address', value: containerData.NetworkSettings?.IPAddress || 'N/A' },
-                  { key: 'Mac Address', value: containerData.NetworkSettings?.MacAddress || 'N/A' },
-                  { key: 'Gateway', value: containerData.NetworkSettings?.Gateway || 'N/A' },
+                  { key: 'IP Address', value: containerState.NetworkSettings?.IPAddress || 'N/A' },
+                  { key: 'Mac Address', value: containerState.NetworkSettings?.MacAddress || 'N/A' },
+                  { key: 'Gateway', value: containerState.NetworkSettings?.Gateway || 'N/A' },
                 ]}
                 columns={[
                   { title: 'Field', dataIndex: 'key', key: 'key' },
@@ -147,7 +173,7 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
             <Col span={12}>
               <Title level={5} style={{ marginBottom: 12 }}>Ports</Title>
               <Table
-                dataSource={Object.entries(containerData.NetworkSettings?.Ports || {}).map(([port, bindings]) => ({
+                dataSource={Object.entries(containerState.NetworkSettings?.Ports || {}).map(([port, bindings]) => ({
                   key: port,
                   value: bindings?.map((b) => `${b.HostIp}:${b.HostPort}`).join(', ') || 'No bindings',
                 }))}
@@ -171,7 +197,7 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
       key: 'environment',
       label: 'Environment Variables',
       children: (
-        <Row>
+        <div>
           <Title level={5}>All Environment Variables</Title>
           <Table
             dataSource={environmentData}
@@ -181,7 +207,7 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
             scroll={{ x: '50%' }}
             className='scrollbar-thin'
           />
-        </Row>
+        </div>
       ),
     },
     {
@@ -191,7 +217,7 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
         <div>
           <Title level={5} style={{ marginTop: 24 }}>All Labels</Title>
           <Table
-            dataSource={Object.entries(containerData.Config.Labels).map(([key, value]) => ({
+            dataSource={Object.entries(containerState.Config.Labels).map(([key, value]) => ({
               key,
               value
             }))}
@@ -224,75 +250,105 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
       onClose={onClose}
       closable
     >
-      <Space style={{ width: '100%' }}>
-        {/* Primary Actions Row */}
-        <Space wrap>
-          <Button
-            type="primary"
-            icon={<VscDebugStart />}
-            onClick={() => handleAction('start')}
-            style={{ background: '#52c41a', borderColor: '#52c41a' }}
-          >
-            Start
-          </Button>
+      <Space style={{ width: '100%' }} size='small' wrap>
+        <Button
+          color='green'
+          variant='solid'
+          icon={<VscDebugStart />}
+          onClick={handleStart}
+          size='small'
+          loading={loadingAction == 'Start' && isLoading}
+          disabled={isStartDisabled}
+        >
+          Start
+        </Button>
 
-          <Button
-            type="primary"
-            danger
-            icon={<VscDebugStop />}
-            onClick={() => handleAction('stop')}
-          >
-            Stop
-          </Button>
+        <Button
+          type="primary"
+          danger
+          icon={<VscDebugStop />}
+          size='small'
+          onClick={handleStop}
+          disabled={isStopDisabled}
+          loading={loadingAction == 'Stop' ? isLoading : false}
+        >
+          Stop
+        </Button>
 
-          <Button
-            type="primary"
-            icon={<VscDebugRestart />}
-            onClick={() => handleAction('restart')}
-            style={{ background: '#faad14', borderColor: '#faad14' }}
-          >
-            Restart
-          </Button>
+        <Button
+          color='orange'
+          variant='solid'
+          icon={<VscDebugRestart />}
+          onClick={handleRestart}
+          loading={loadingAction == 'Restart' ? isLoading : false}
+          size='small'
+          disabled={isRestartDisabled}
+        >
+          Restart
+        </Button>
 
-          <Button
-            type="primary"
-            danger
-            icon={<PiBomb />}
-            onClick={() => handleAction('kill')}
-            style={{ background: '#cf1322', borderColor: '#cf1322' }}
-          >
-            Kill
-          </Button>
-        </Space>
+        <Button
+          color='red'
+          variant='solid'
+          icon={<PiBomb />}
+          onClick={handleKill}
+          loading={loadingAction == 'Kill' ? isLoading : false}
+          size='small'
+          disabled={isKillDisabled}
+        >
+          Kill
+        </Button>
+        <Button
+          color='red'
+          variant="dashed"
+          icon={<VscDebugPause />}
+          onClick={() => handleAction('pause')}
+          disabled={isPauseDisabled}
+          size='small'
+        >
+          Pause
+        </Button>
 
-        {/* Secondary Actions Row */}
-        <Space wrap>
-          <Button
-            icon={<VscDebugPause />}
-            onClick={() => handleAction('pause')}
-            type="dashed"
-          >
-            Pause
-          </Button>
+        <Button
+          color='green'
+          variant='dashed'
+          icon={<VscDebugStart />}
+          onClick={() => handleAction('resume')}
+          size='small'
+          disabled={isResumeDisabled}
+        >
+          Resume
+        </Button>
 
-          <Button
-            icon={<VscDebugStart />}
-            onClick={() => handleAction('resume')}
-            type="dashed"
-            style={{ color: '#52c41a', borderColor: '#52c41a' }}
-          >
-            Resume
-          </Button>
-
-          <Button
-            icon={<VscTrash />}
-            onClick={() => handleAction('remove')}
-            danger
-            type="dashed"
-          >
-            Remove
-          </Button>
-        </Space>
+        <Button
+          color='red'
+          variant="dashed"
+          icon={<VscTrash />}
+          onClick={() => handleAction('remove')}
+          size='small'
+          disabled={isRemoveDisabled}
+        >
+          Remove
+        </Button>
+        <Button
+          color='red'
+          variant="dashed"
+          icon={<VscRefresh />}
+          onClick={() => handleAction('recreate')}
+          size='small'
+          disabled={isRecreateDisabled}
+        >
+          Recreate
+        </Button>
+        <Button
+          icon={<VscEdit />}
+          onClick={() => handleAction('edit')}
+          danger
+          size='small'
+          disabled={isEditDisabled}
+          type="dashed"
+        >
+        </Button>
       </Space>
 
       <Tabs defaultActiveKey="general" items={tabItems} />

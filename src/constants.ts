@@ -1,0 +1,1 @@
+export const successRequest = [200,304]

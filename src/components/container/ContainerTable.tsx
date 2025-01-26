@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { getContainers } from "@/app/containers/data";
+import { getContainers } from "@/app/containers/api";
 import { ParamsType, ProColumns, ProTable } from '@ant-design/pro-components';
 import { useState } from 'react';
 import { ContainerBadge } from "./ContainerBadge";
