@@ -135,7 +135,17 @@ const ContainerDrawer: React.FC<ContainerDrawerProps> = ({ open, onClose, contai
               { key: 'Command', value: `${containerState.Path} ${containerState.Args?.join(' ')}` },
               { key: 'Created', value: new Date(containerState.Created).toLocaleString() },
               { key: 'Started', value: new Date(containerState.State.StartedAt).toLocaleString() },
-              { key: 'Finished', value: containerState.State.FinishedAt !== "0001-01-01T00:00:00Z" ? new Date(containerState.State.FinishedAt).toLocaleString() : "N/A" },
+              ...(containerState?.State?.Status !== "running"
+                ? [
+                    {
+                      key: 'Finished',
+                      value:
+                        containerState.State.FinishedAt !== "0001-01-01T00:00:00Z"
+                          ? new Date(containerState.State.FinishedAt).toLocaleString()
+                          : "N/A",
+                    },
+                  ]
+                : []),
             ]}
             columns={[
               { title: 'Field', dataIndex: 'key', key: 'key' },
