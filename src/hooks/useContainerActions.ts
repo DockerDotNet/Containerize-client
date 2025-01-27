@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { notification } from "antd";
 import {
   killContainer,
@@ -21,15 +21,34 @@ const useContainerActions = (containerId: string, onSuccess?: () => void) => {
   const [containerState, setContainerState] = useState<ContainerDetail | null>(
     null
   );
-  const isStartDisabled = containerState?.State?.Status === "running";
-  const isStopDisabled = containerState?.State?.Status !== "running";
-  const isRestartDisabled = false; // Restart is always enabled
-  const isKillDisabled = containerState?.State?.Status !== "running";
-  const isPauseDisabled = containerState?.State?.Status !== "running";
-  const isResumeDisabled = containerState?.State?.Status !== "paused";
-  const isRemoveDisabled = false; // Remove is always enabled
-  const isRecreateDisabled = false; // Recreate is always enabled
-  const isEditDisabled = false; // Edit is always enabled
+
+  const { Status } = containerState?.State || {};
+
+
+  const {
+    isStartDisabled,
+    isStopDisabled,
+    isRestartDisabled,
+    isKillDisabled,
+    isPauseDisabled,
+    isResumeDisabled,
+    isRemoveDisabled,
+    isRecreateDisabled,
+    isEditDisabled
+  } = useMemo(() => {
+    const { Status } = containerState?.State || {};
+    return {
+      isStartDisabled: Status === "running",
+      isStopDisabled: Status !== "running",
+      isRestartDisabled: false, // Restart is always enabled
+      isKillDisabled: Status !== "running",
+      isPauseDisabled: Status !== "running",
+      isResumeDisabled: Status !== "paused",
+      isRemoveDisabled: false, // Remove is always enabled
+      isRecreateDisabled: false, // Recreate is always enabled
+      isEditDisabled: false, // Edit is always enabled
+    };
+  }, [containerState]);
 
 
   const handleAction = async (
